@@ -68,3 +68,49 @@ mv -v md5sums /mnt/lfs/sources/.
 ```
 wget https://sourceforge.net/projects/expat/files/expat/2.7.1/expat-2.7.1.tar.xz/download
 ```
+
+---
+
+## TIP: Share files between your host machine and the VM
+
+One thing to make the project easier is sharing files from your host to the VM (for example, scripts to automatize some of the processes)
+
+- **In the VM:**
+
+  - **This step is done in the VM menu ->**  settings -> network -> In "Attached to" chose "Bridged Adapter"
+  - Install OpenSSH
+  ```
+  sudo apt install openssh-server
+  ```
+  - Get your IP
+  ```
+  ip -a | grep 192
+  ```
+  It is the first serial number next to "inet". For example, 192.168.1.xxx.
+  - Connect to SSH
+  ```
+  ssh your_username@your_ip
+  ```
+- **In the host (if you are using windows):**
+
+  - Check if you have ssh installed
+  ```
+  Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Server*'
+  ```
+  - If you haven't it installed:
+  ```
+  Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+  ```
+  - Start the service
+  ```
+  Start-Service sshd
+  Set-Service -Name sshd -StartupType 'Automatic'
+  ```
+
+Once you have your host and the VM setted up, you can use it with the next command (in the host):
+```
+scp path_of_the_file_you_want_to_send vm_username@ip_vm:path_of_the_vm_to_store_the_file
+```
+```
+scp .\user_script.sh rcortes-@192.168.1.136:/home/rcortes-/.
+```
