@@ -59,6 +59,19 @@ Create the 3 partitions:
 ```
 wget https://www.linuxfromscratch.org/lfs/view/stable/wget-list-sysv
 ```
+- Download the required patches
+```
+wget https://www.linuxfromscratch.org/patches/lfs/12.3/coreutils-9.6-i18n-1.patch
+wget https://www.linuxfromscratch.org/patches/lfs/12.3/bzip2-1.0.8-install_docs-1.patch
+wget https://www.linuxfromscratch.org/patches/lfs/12.3/expect-5.45.4-gcc14-1.patch
+wget https://www.linuxfromscratch.org/patches/lfs/12.3/kbd-2.7.1-backspace-1.patch
+wget https://www.linuxfromscratch.org/patches/lfs/12.3/glibc-2.41-fhs-1.patch
+wget https://www.linuxfromscratch.org/patches/lfs/12.3/sysvinit-3.14-consolidated-1.patch
+```
+and place them into the sources directory:
+```
+mv -v *.patch $LFS/sources/.
+```
 - Download the md5sums verification and place it into the sources directory
 ```
 wget https://www.linuxfromscratch.org/lfs/view/stable/md5sums
@@ -215,4 +228,71 @@ cp -rv usr/include $LFS/usr
 
 cd $LFS/sources
 rm -rf linux-6.13.4
+
+############### --- GLIBC --- ###############
+
+tar -xf glibc-2.41.tar.xz
+
+cd glibc-2.41
+
+case $(uname -m) in
+    i?86)   ln -sfv ld-linux.so.2 $LFS/lib/ld-lsb.so.3
+    ;;
+    x86_64) ln -sfv ../lib/ld-linux-x86-64.so.2 $LFS/lib64
+            ln -sfv ../lib/ld-linux-x86-64.so.2 $LFS/lib64/ld-lsb-x86-64.so.3
+    ;;
+esac
+
+patch -Np1 -i ../glibc-2.41-fhs-1.patch
+
+mkdir -v build
+cd build
+
+echo "rootsbindir=/usr/sbin" > configparms
+
+../configure                             \
+      --prefix=/usr                      \
+      --host=$LFS_TGT                    \
+      --build=$(../scripts/config.guess) \
+      --enable-kernel=5.4                \
+      --with-headers=$LFS/usr/include    \
+      --disable-nscd                     \
+      libc_cv_slibdir=/usr/lib
+
+make
+
+make DESTDIR=$LFS install
+
+sed '/RTLDLIST=/s@/usr@@g' -i $LFS/usr/bin/ldd
+
+############### --- LIBSTDC++ --- ###############
+
+tar -xf gcc-14.2.0.tar.xz
+
+cd gcc-14.2.0
+
+mkdir -v build
+cd build
+
+../libstdc++-v3/configure           \
+    --host=$LFS_TGT                 \
+    --build=$(../config.guess)      \
+    --prefix=/usr                   \
+    --disable-multilib              \
+    --disable-nls                   \
+    --disable-libstdcxx-pch         \
+    --with-gxx-include-dir=/tools/$LFS_TGT/include/c++/14.2.0
+
+make
+
+make DESTDIR=$LFS install
+
+rm -v $LFS/usr/lib/lib{stdc++{,exp,fs},supc++}.la
+
+cd $LFS/sources
+rm -rf gcc-14.2.0
+cd $LFS/sources
+rm -rf glibc-2.41
 ```
+
+
