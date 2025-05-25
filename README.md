@@ -280,10 +280,20 @@ chmod -v 600  /var/log/btmp
 
 ---
 
-## Additional Temporary Tools
+## Additional Temporary Tools ⚒️
 
 This script is to install the additional temporary tools from this step: [Link to the LFS book](https://www.linuxfromscratch.org/lfs/view/stable/chapter07/gettext.html) until the last tool of the chapter, in my case is util-linux.
 
 [Link to the script of the additional temporary tools step](./additional_temporary_tools.sh)
+
+---
+
+## Building the LFS System - Installing Basic System Software ⚒️
+
+This script is to install all the basic tools that our LFS system will have. It's based in this chapter: [Link to the LFS book](https://www.linuxfromscratch.org/lfs/view/stable/chapter08/introduction.html).
+
+ **¡Caution!** You have to be careful because the 'set -e' command can stop the script when doing the 'make check' step, especially in the glibc step.
+
+[Link to the script of the basic system software step](./basic-system-software.sh)
 
 ---
