@@ -5,6 +5,7 @@
 #####################################################
 
 set -e
+mkdir -pv /sources/logs
 
 ############### --- MAN-PAGES --- ###############
 
@@ -61,12 +62,12 @@ echo "rootsbindir=/usr/sbin" > configparms
 
 make
 
-make check 2>&1 | tee /sources/glibc-test.log
+make check 2>&1 | tee /sources/logs/glibc-test.log
 
 ### CAUTION!!!! 
 ###You should stop right now and check for possible failures and if necessary, solve them
 
-grep '^FAIL:' glibc-test.log
+grep '^FAIL:' /sources/logs/glibc-test.log
 
 touch /etc/ld.so.conf
 
@@ -241,7 +242,7 @@ cd $NAME
 
 make
 
-make check 2>&1 | tee /sources/xz-test.log
+make check 2>&1 | tee /sources/logs/xz-test.log
 
 make install
 
@@ -259,7 +260,7 @@ cd $NAME
 
 make BUILD_STATIC=no PREFIX=/usr
 
-make -j1 check 2>&1 | tee /sources/lz4-test.log
+make -j1 check 2>&1 | tee /sources/logs/lz4-test.log
 
 make BUILD_STATIC=no PREFIX=/usr install
 
@@ -277,7 +278,7 @@ cd $NAME
 
 make prefix=/usr
 
-make check 2>&1 | tee /sources/zstd-test.log
+make check 2>&1 | tee /sources/logs/zstd-test.log
 
 make prefix=/usr install
 
@@ -299,7 +300,7 @@ cd $NAME
 
 make
 
-make check 2>&1 | tee /sources/file-test.log
+make check 2>&1 | tee /sources/logs/file-test.log
 
 make install
 
@@ -345,7 +346,7 @@ cd $NAME
 
 make
 
-make check 2>&1 | tee /sources/m4-test.log
+make check 2>&1 | tee /sources/logs/m4-test.log
 
 make install
 
@@ -368,6 +369,222 @@ make
 make test
 
 make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- FLEX --- ###############
+
+TARFILE=$(echo flex*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr \
+            --docdir=/usr/share/doc/flex-2.6.4 \
+            --disable-static
+
+make
+
+make check 2>&1 | tee /sources/logs/flex-test.log
+
+make install
+
+ln -sv flex   /usr/bin/lex
+ln -sv flex.1 /usr/share/man/man1/lex.1
+
+cd /sources
+rm -rf $NAME
+
+############### --- TCL --- ###############
+
+TARFILE=$(echo tcl*-src.tar.*)
+NAME=$(echo ${TARFILE%-src.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+SRCDIR=$(pwd)
+cd unix
+./configure --prefix=/usr           \
+            --mandir=/usr/share/man \
+            --disable-rpath
+
+make
+
+sed -e "s|$SRCDIR/unix|/usr/lib|" \
+    -e "s|$SRCDIR|/usr/include|"  \
+    -i tclConfig.sh
+
+sed -e "s|$SRCDIR/unix/pkgs/tdbc1.1.10|/usr/lib/tdbc1.1.10|" \
+    -e "s|$SRCDIR/pkgs/tdbc1.1.10/generic|/usr/include|"    \
+    -e "s|$SRCDIR/pkgs/tdbc1.1.10/library|/usr/lib/tcl8.6|" \
+    -e "s|$SRCDIR/pkgs/tdbc1.1.10|/usr/include|"            \
+    -i pkgs/tdbc1.1.10/tdbcConfig.sh
+
+sed -e "s|$SRCDIR/unix/pkgs/itcl4.3.2|/usr/lib/itcl4.3.2|" \
+    -e "s|$SRCDIR/pkgs/itcl4.3.2/generic|/usr/include|"    \
+    -e "s|$SRCDIR/pkgs/itcl4.3.2|/usr/include|"            \
+    -i pkgs/itcl4.3.2/itclConfig.sh
+
+unset SRCDIR
+
+make test
+
+make install
+
+chmod -v u+w /usr/lib/libtcl8.6.so
+
+make install-private-headers
+
+ln -sfv tclsh8.6 /usr/bin/tclsh
+mv /usr/share/man/man3/{Thread,Tcl_Thread}.3
+
+cd ..
+tar -xf ../tcl8.6.16-html.tar.gz --strip-components=1
+mkdir -v -p /usr/share/doc/tcl-8.6.16
+cp -v -r  ./html/* /usr/share/doc/tcl-8.6.16
+
+cd /sources
+rm -rf $NAME
+
+############### --- EXPECT --- ###############
+
+TARFILE=$(echo expect*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+python3 -c 'from pty import spawn; spawn(["echo", "ok"])'
+
+./configure --prefix=/usr           \
+            --with-tcl=/usr/lib     \
+            --enable-shared         \
+            --disable-rpath         \
+            --mandir=/usr/share/man \
+            --with-tclinclude=/usr/include
+
+make
+
+make test
+
+make install
+ln -svf expect5.45.4/libexpect5.45.4.so /usr/lib
+
+cd /sources
+rm -rf $NAME
+
+############### --- DEJAGNU --- ###############
+
+TARFILE=$(echo dejagnu*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+mkdir -v build
+cd       build
+
+../configure --prefix=/usr
+makeinfo --html --no-split -o doc/dejagnu.html ../doc/dejagnu.texi
+makeinfo --plaintext       -o doc/dejagnu.txt  ../doc/dejagnu.texi
+
+make check 2>&1 | tee /sources/logs/dejagnu-test.log
+
+make install
+install -v -dm755  /usr/share/doc/dejagnu-1.6.3
+install -v -m644   doc/dejagnu.{html,txt} /usr/share/doc/dejagnu-1.6.3
+
+cd /sources
+rm -rf $NAME
+
+############### --- PKGCONF --- ###############
+
+TARFILE=$(echo pkgconf*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr              \
+            --disable-static           \
+            --docdir=/usr/share/doc/pkgconf-2.3.0
+
+make
+
+make install
+
+ln -sv pkgconf   /usr/bin/pkg-config
+ln -sv pkgconf.1 /usr/share/man/man1/pkg-config.1
+
+cd /sources
+rm -rf $NAME
+
+############### --- BINUTILS --- ###############
+
+TARFILE=$(echo binutils*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+mkdir -v build
+cd       build
+
+../configure --prefix=/usr       \
+             --sysconfdir=/etc   \
+             --enable-ld=default \
+             --enable-plugins    \
+             --enable-shared     \
+             --disable-werror    \
+             --enable-64-bit-bfd \
+             --enable-new-dtags  \
+             --with-system-zlib  \
+             --enable-default-hash-style=gnu
+
+make tooldir=/usr
+
+make -k check 2>&1 | tee /sources/logs/binutils-test.log
+
+make tooldir=/usr install
+
+rm -rfv /usr/lib/lib{bfd,ctf,ctf-nobfd,gprofng,opcodes,sframe}.a \
+        /usr/share/doc/gprofng/
+
+cd /sources
+rm -rf $NAME
+
+############### --- GMP --- ###############
+
+TARFILE=$(echo gmp*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr    \
+            --enable-cxx     \
+            --disable-static \
+            --docdir=/usr/share/doc/gmp-6.3.0
+
+make
+make html
+
+make check 2>&1 | tee /sources/logs/gmp-test.log
+
+awk '/# PASS:/{total+=$3} ; END{print total}' /sources/logs/gmp-test.log
+
+make install
+make install-html
 
 cd /sources
 rm -rf $NAME
