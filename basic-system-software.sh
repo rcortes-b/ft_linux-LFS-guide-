@@ -588,3 +588,417 @@ make install-html
 
 cd /sources
 rm -rf $NAME
+
+############### --- MPFR --- ###############
+
+TARFILE=$(echo mpfr*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr        \
+            --disable-static     \
+            --enable-thread-safe \
+            --docdir=/usr/share/doc/mpfr-4.2.1
+
+make
+make html
+
+make check 2>&1 | tee /sources/logs/mpfr-test.log
+
+make install
+make install-html
+
+cd /sources
+rm -rf $NAME
+
+############### --- MPC --- ###############
+
+TARFILE=$(echo mpc*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/mpc-1.3.1
+
+make
+make html
+
+make check 2>&1 | tee /sources/logs/mpc-test.log
+
+make install
+make install-html
+
+cd /sources
+rm -rf $NAME
+
+############### --- ATTR --- ###############
+
+TARFILE=$(echo attr*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr     \
+            --disable-static  \
+            --sysconfdir=/etc \
+            --docdir=/usr/share/doc/attr-2.5.2
+
+make
+
+make check 2>&1 | tee /sources/logs/attr-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- ACL --- ###############
+
+TARFILE=$(echo acl*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr         \
+            --disable-static      \
+            --docdir=/usr/share/doc/acl-2.3.2
+
+make
+
+make check 2>&1 | tee /sources/logs/acl-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- LIBCAP --- ###############
+
+TARFILE=$(echo libcap*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+sed -i '/install -m.*STA/d' libcap/Makefile
+
+make test
+
+make prefix=/usr lib=lib install
+
+cd /sources
+rm -rf $NAME
+
+############### --- LIBXCRYPT --- ###############
+
+TARFILE=$(echo libxcrypt*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr                \
+            --enable-hashes=strong,glibc \
+            --enable-obsolete-api=no     \
+            --disable-static             \
+            --disable-failure-tokens
+
+make
+
+make check 2>&1 | tee /sources/logs/libxcrypt-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- SHADOW --- ###############
+
+TARFILE=$(echo shadow*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+sed -i 's/groups$(EXEEXT) //' src/Makefile.in
+find man -name Makefile.in -exec sed -i 's/groups\.1 / /'   {} \;
+find man -name Makefile.in -exec sed -i 's/getspnam\.3 / /' {} \;
+find man -name Makefile.in -exec sed -i 's/passwd\.5 / /'   {} \;
+
+sed -e 's:#ENCRYPT_METHOD DES:ENCRYPT_METHOD YESCRYPT:' \
+    -e 's:/var/spool/mail:/var/mail:'                   \
+    -e '/PATH=/{s@/sbin:@@;s@/bin:@@}'                  \
+    -i etc/login.defs
+
+touch /usr/bin/passwd
+./configure --sysconfdir=/etc   \
+            --disable-static    \
+            --with-{b,yes}crypt \
+            --without-libbsd    \
+            --with-group-name-max-length=32
+
+make
+make exec_prefix=/usr install
+make -C man install-man
+
+pwconv
+grpconv
+
+mkdir -p /etc/default
+useradd -D --gid 999
+
+#Here you will set the root password manually
+passwd root
+
+cd /sources
+rm -rf $NAME
+
+############### --- GCC --- ###############
+
+TARFILE=$(echo gcc*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+case $(uname -m) in
+  x86_64)
+    sed -e '/m64=/s/lib64/lib/' \
+        -i.orig gcc/config/i386/t-linux64
+  ;;
+esac
+
+mkdir -v build
+cd build
+
+../configure --prefix=/usr            \
+             LD=ld                    \
+             --enable-languages=c,c++ \
+             --enable-default-pie     \
+             --enable-default-ssp     \
+             --enable-host-pie        \
+             --disable-multilib       \
+             --disable-bootstrap      \
+             --disable-fixincludes    \
+             --with-system-zlib
+
+make
+
+ulimit -s -H unlimited
+sed -e '/cpython/d'               -i ../gcc/testsuite/gcc.dg/plugin/plugin.exp
+sed -e 's/no-pic /&-no-pie /'     -i ../gcc/testsuite/gcc.target/i386/pr113689-1.c
+sed -e 's/300000/(1|300000)/'     -i ../libgomp/testsuite/libgomp.c-c++-common/pr109062.c
+sed -e 's/{ target nonpic } //' \
+    -e '/GOTPCREL/d'              -i ../gcc/testsuite/gcc.target/i386/fentryname3.c
+
+chown -R tester .
+su tester -c "PATH=$PATH make -k check" | tee /sources/logs/gcc-test.log
+../contrib/test_summary > /sources/logs/gcc-test.log
+
+make install
+
+chown -v -R root:root \
+    /usr/lib/gcc/$(gcc -dumpmachine)/14.2.0/include{,-fixed}
+
+ln -svr /usr/bin/cpp /usr/lib
+ln -sv gcc.1 /usr/share/man/man1/cc.1
+ln -sfv ../../libexec/gcc/$(gcc -dumpmachine)/14.2.0/liblto_plugin.so \
+        /usr/lib/bfd-plugins/
+
+### At this moment you've to check if everything is going well following the steps in the LFS Book
+### If everything is working, you can continue:
+
+mkdir -pv /usr/share/gdb/auto-load/usr/lib
+mv -v /usr/lib/*gdb.py /usr/share/gdb/auto-load/usr/lib
+
+cd /sources
+rm -rf $NAME
+
+############### --- NCURSES --- ###############
+
+TARFILE=$(echo ncurses*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr           \
+            --mandir=/usr/share/man \
+            --with-shared           \
+            --without-debug         \
+            --without-normal        \
+            --with-cxx-shared       \
+            --enable-pc-files       \
+            --with-pkg-config-libdir=/usr/lib/pkgconfig
+
+make
+make DESTDIR=$PWD/dest install
+install -vm755 dest/usr/lib/libncursesw.so.6.5 /usr/lib
+rm -v  dest/usr/lib/libncursesw.so.6.5
+sed -e 's/^#if.*XOPEN.*$/#if 1/' \
+    -i dest/usr/include/curses.h
+cp -av dest/* /
+
+for lib in ncurses form panel menu ; do
+    ln -sfv lib${lib}w.so /usr/lib/lib${lib}.so
+    ln -sfv ${lib}w.pc    /usr/lib/pkgconfig/${lib}.pc
+done
+
+ln -sfv libncursesw.so /usr/lib/libcurses.so
+cp -v -R doc -T /usr/share/doc/ncurses-6.5
+
+cd /sources
+rm -rf $NAME
+
+############### --- SED --- ###############
+
+TARFILE=$(echo sed*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr
+
+make
+make html
+
+chown -R tester .
+su tester -c "PATH=$PATH make check" | tee /sources/logs/sed-test.log
+
+make install
+install -d -m755           /usr/share/doc/sed-4.9
+install -m644 doc/sed.html /usr/share/doc/sed-4.9
+
+cd /sources
+rm -rf $NAME
+
+############### --- PSMISC --- ###############
+
+TARFILE=$(echo psmisc*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr
+
+make
+make check 2>&1 | tee /sources/logs/psmisc-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- GETTEXT --- ###############
+
+TARFILE=$(echo gettext*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/gettext-0.24
+
+make
+make check 2>&1 | tee /sources/logs/gettext-test.log
+
+make install
+chmod -v 0755 /usr/lib/preloadable_libintl.so
+
+cd /sources
+rm -rf $NAME
+
+############### --- BISON --- ###############
+
+TARFILE=$(echo bison*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr --docdir=/usr/share/doc/bison-3.8.2
+
+make
+make check 2>&1 | tee /sources/logs/bison-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- GREP --- ###############
+
+TARFILE=$(echo grep*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+sed -i "s/echo/#echo/" src/egrep.sh
+
+./configure --prefix=/usr
+
+make
+make check 2>&1 | tee /sources/logs/grep-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- BASH --- ###############
+
+TARFILE=$(echo bash*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr             \
+            --without-bash-malloc     \
+            --with-installed-readline \
+            --docdir=/usr/share/doc/bash-5.2.37
+
+make
+
+chown -R tester .
+su -s /usr/bin/expect tester << "EOF"
+set timeout -1
+spawn make tests
+expect eof
+lassign [wait] _ _ _ value
+exit $value
+EOF
+
+make install
+
+exec /usr/bin/bash --login
+
+cd /sources
+rm -rf $NAME
