@@ -1002,3 +1002,357 @@ exec /usr/bin/bash --login
 
 cd /sources
 rm -rf $NAME
+
+############### --- LIBTOOL --- ###############
+
+TARFILE=$(echo libtool*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr
+
+make
+make check 2>&1 | tee /sources/logs/libtool-test.log
+
+make install
+
+rm -fv /usr/lib/libltdl.a
+
+cd /sources
+rm -rf $NAME
+
+############### --- GDBM --- ###############
+
+TARFILE=$(echo gdbm*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr    \
+            --disable-static \
+            --enable-libgdbm-compat
+
+make
+make check 2>&1 | tee /sources/logs/gdbm-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- GPERF --- ###############
+
+TARFILE=$(echo gperf*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr --docdir=/usr/share/doc/gperf-3.1
+
+make
+make -j1 check 2>&1 | tee /sources/logs/gperf-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- EXPAT --- ###############
+
+TARFILE=$(echo expat*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/expat-2.7.1
+
+make
+make check 2>&1 | tee /sources/logs/expat-test.log
+
+make install
+install -v -m644 doc/*.{html,css} /usr/share/doc/expat-2.7.1
+
+cd /sources
+rm -rf $NAME
+
+############### --- INETUTILS --- ###############
+
+TARFILE=$(echo inetutils*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+sed -i 's/def HAVE_TERMCAP_TGETENT/ 1/' telnet/telnet.c
+
+./configure --prefix=/usr        \
+            --bindir=/usr/bin    \
+            --localstatedir=/var \
+            --disable-logger     \
+            --disable-whois      \
+            --disable-rcp        \
+            --disable-rexec      \
+            --disable-rlogin     \
+            --disable-rsh        \
+            --disable-servers
+
+make
+make check 2>&1 | tee /sources/logs/inetutils-test.log
+
+make install
+mv -v /usr/{,s}bin/ifconfig
+
+cd /sources
+rm -rf $NAME
+
+############### --- LESS --- ###############
+
+TARFILE=$(echo less*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr --sysconfdir=/etc
+
+make
+make check 2>&1 | tee /sources/logs/less-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- PERL --- ###############
+
+TARFILE=$(echo perl*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+export BUILD_ZLIB=False
+export BUILD_BZIP2=0
+
+sh Configure -des                                          \
+             -D prefix=/usr                                \
+             -D vendorprefix=/usr                          \
+             -D privlib=/usr/lib/perl5/5.40/core_perl      \
+             -D archlib=/usr/lib/perl5/5.40/core_perl      \
+             -D sitelib=/usr/lib/perl5/5.40/site_perl      \
+             -D sitearch=/usr/lib/perl5/5.40/site_perl     \
+             -D vendorlib=/usr/lib/perl5/5.40/vendor_perl  \
+             -D vendorarch=/usr/lib/perl5/5.40/vendor_perl \
+             -D man1dir=/usr/share/man/man1                \
+             -D man3dir=/usr/share/man/man3                \
+             -D pager="/usr/bin/less -isR"                 \
+             -D useshrplib                                 \
+             -D usethreads
+
+make
+TEST_JOBS=$(nproc) make test_harness | tee /sources/logs/perl-test.log
+
+make install
+unset BUILD_ZLIB BUILD_BZIP2
+
+cd /sources
+rm -rf $NAME
+
+############### --- XML::PARSER --- ###############
+
+TARFILE=$(echo XML*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+perl Makefile.PL
+
+make
+make test | tee /sources/logs/XML-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- INTLTOOL --- ###############
+
+TARFILE=$(echo intl*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+sed -i 's:\\\${:\\\$\\{:' intltool-update.in
+
+./configure --prefix=/usr
+
+make
+make check 2>&1 | tee /sources/logs/intltool-test.log
+
+make install
+install -v -Dm644 doc/I18N-HOWTO /usr/share/doc/intltool-0.51.0/I18N-HOWTO
+
+cd /sources
+rm -rf $NAME
+
+############### --- AUTOCONF --- ###############
+
+TARFILE=$(echo autoconf*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr
+
+make
+make check 2>&1 | tee /sources/logs/autoconf-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- AUTOMAKE --- ###############
+
+TARFILE=$(echo automake*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr --docdir=/usr/share/doc/automake-1.17
+
+make
+make -j$(($(nproc)>4?$(nproc):4)) check 2>&1 | tee /sources/logs/automake-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- OPENSSL --- ###############
+
+TARFILE=$(echo openssl*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./config --prefix=/usr         \
+         --openssldir=/etc/ssl \
+         --libdir=lib          \
+         shared                \
+         zlib-dynamic
+make
+HARNESS_JOBS=$(nproc) make test | tee /sources/logs/openssl-test.log
+
+sed -i '/INSTALL_LIBS/s/libcrypto.a libssl.a//' Makefile
+make MANSUFFIX=ssl install
+
+mv -v /usr/share/doc/openssl /usr/share/doc/openssl-3.4.1
+cp -vfr doc/* /usr/share/doc/openssl-3.4.1
+
+cd /sources
+rm -rf $NAME
+
+############### --- LIBELF FROM ELFUTILS --- ###############
+
+TARFILE=$(echo elfutils*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr                \
+            --disable-debuginfod         \
+            --enable-libdebuginfod=dummy
+
+make
+make check 2>&1 | tee /sources/logs/libelf-test.log
+
+make -C libelf install
+install -vm644 config/libelf.pc /usr/lib/pkgconfig
+rm /usr/lib/libelf.a
+
+cd /sources
+rm -rf $NAME
+
+############### --- LIBFFI --- ###############
+
+TARFILE=$(echo libffi*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr          \
+            --disable-static       \
+            --with-gcc-arch=native
+
+make
+make check 2>&1 | tee /sources/logs/libffi-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- PYTHON --- ###############
+
+TARFILE=$(echo Python*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr        \
+            --enable-shared      \
+            --with-system-expat  \
+            --enable-optimizations
+
+make
+make test TESTOPTS="--timeout 120" | tee /sources/logs/Python-test.log
+
+make install
+
+cat > /etc/pip.conf << EOF
+[global]
+root-user-action = ignore
+disable-pip-version-check = true
+EOF
+
+install -v -dm755 /usr/share/doc/python-3.13.2/html
+
+tar --strip-components=1  \
+    --no-same-owner       \
+    --no-same-permissions \
+    -C /usr/share/doc/python-3.13.2/html \
+    -xvf ../python-3.13.2-docs-html.tar.bz2
+
+cd /sources
+rm -rf $NAME
