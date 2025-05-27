@@ -1356,3 +1356,800 @@ tar --strip-components=1  \
 
 cd /sources
 rm -rf $NAME
+
+############### --- FLIT-CORE --- ###############
+
+TARFILE=$(echo flit*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+pip3 install --no-index --find-links dist flit_core
+
+cd /sources
+rm -rf $NAME
+
+############### --- WHEEL --- ###############
+
+TARFILE=$(echo wheel*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+pip3 install --no-index --find-links dist wheel
+
+cd /sources
+rm -rf $NAME
+
+############### --- SETUPTOOLS --- ###############
+
+TARFILE=$(echo setuptools*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+pip3 install --no-index --find-links dist setuptools
+
+cd /sources
+rm -rf $NAME
+
+############### --- NINJA --- ###############
+
+TARFILE=$(echo ninja*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+export NINJAJOBS=4
+sed -i '/int Guess/a \
+  int   j = 0;\
+  char* jobs = getenv( "NINJAJOBS" );\
+  if ( jobs != NULL ) j = atoi( jobs );\
+  if ( j > 0 ) return j;\
+' src/ninja.cc
+
+python3 configure.py --bootstrap --verbose
+install -vm755 ninja /usr/bin/
+install -vDm644 misc/bash-completion /usr/share/bash-completion/completions/ninja
+install -vDm644 misc/zsh-completion  /usr/share/zsh/site-functions/_ninja
+
+cd /sources
+rm -rf $NAME
+
+############### --- MESON --- ###############
+
+TARFILE=$(echo meson*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+
+pip3 install --no-index --find-links dist meson
+install -vDm644 data/shell-completions/bash/meson /usr/share/bash-completion/completions/meson
+install -vDm644 data/shell-completions/zsh/_meson /usr/share/zsh/site-functions/_meson
+
+cd /sources
+rm -rf $NAME
+
+############### --- KMOD --- ###############
+
+TARFILE=$(echo kmod*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+mkdir -p build
+cd       build
+
+meson setup --prefix=/usr ..    \
+            --sbindir=/usr/sbin \
+            --buildtype=release \
+            -D manpages=false
+
+ninja
+ninja install
+
+cd /sources
+rm -rf $NAME
+
+############### --- COREUTILS --- ###############
+
+TARFILE=$(echo coreutils*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+patch -Np1 -i ../coreutils-9.6-i18n-1.patch
+
+autoreconf -fv
+automake -af
+FORCE_UNSAFE_CONFIGURE=1 ./configure \
+            --prefix=/usr            \
+            --enable-no-install-program=kill,uptime
+
+make
+make NON_ROOT_USERNAME=tester check-root
+
+groupadd -g 102 dummy -U tester
+chown -R tester .
+su tester -c "PATH=$PATH make -k RUN_EXPENSIVE_TESTS=yes check" \
+   < /dev/null
+groupdel dummy
+
+make install
+
+mv -v /usr/bin/chroot /usr/sbin
+mv -v /usr/share/man/man1/chroot.1 /usr/share/man/man8/chroot.8
+sed -i 's/"1"/"8"/' /usr/share/man/man8/chroot.8
+
+cd /sources
+rm -rf $NAME
+
+############### --- CHECK --- ###############
+
+TARFILE=$(echo check*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr --disable-static
+
+make
+make check 2>&1 | tee /sources/logs/check-test.log
+make docdir=/usr/share/doc/check-0.15.2 install
+
+cd /sources
+rm -rf $NAME
+
+############### --- DIFFUTILS --- ###############
+
+TARFILE=$(echo diffutils*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr
+
+make
+make check 2>&1 | tee /sources/logs/diffutils-test.log
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- GAWK --- ###############
+
+TARFILE=$(echo gawk*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+sed -i 's/extras//' Makefile.in
+./configure --prefix=/usr
+
+make
+
+chown -R tester .
+su tester -c "PATH=$PATH make check" | tee /sources/logs/gawk-test.log
+
+rm -f /usr/bin/gawk-5.3.1
+make install
+
+ln -sv gawk.1 /usr/share/man/man1/awk.1
+install -vDm644 doc/{awkforai.txt,*.{eps,pdf,jpg}} -t /usr/share/doc/gawk-5.3.1
+
+cd /sources
+rm -rf $NAME
+
+############### --- FINDUTILS --- ###############
+
+TARFILE=$(echo findutils*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr --localstatedir=/var/lib/locate
+
+make
+
+chown -R tester .
+su tester -c "PATH=$PATH make check" | tee /sources/logs/findutils-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- GROFF --- ###############
+
+TARFILE=$(echo groff*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+PAGE=A4 ./configure --prefix=/usr
+
+make
+
+make check 2>&1 | tee /sources/logs/groff-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- GRUB --- ###############
+
+TARFILE=$(echo grub*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+unset {C,CPP,CXX,LD}FLAGS
+echo depends bli part_gpt > grub-core/extra_deps.lst
+
+./configure --prefix=/usr          \
+            --sysconfdir=/etc      \
+            --disable-efiemu       \
+            --disable-werror
+
+make
+
+make install
+mv -v /etc/bash_completion.d/grub /usr/share/bash-completion/completions
+
+cd /sources
+rm -rf $NAME
+
+############### --- GZIP --- ###############
+
+TARFILE=$(echo gzip*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr
+
+make
+
+make check 2>&1 | tee /sources/logs/gzip-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- IPROUTE --- ###############
+
+TARFILE=$(echo iproute*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+sed -i /ARPD/d Makefile
+rm -fv man/man8/arpd.8
+
+make NETNS_RUN_DIR=/run/netns
+make SBINDIR=/usr/sbin install
+install -vDm644 COPYING README* -t /usr/share/doc/iproute2-6.13.0
+
+cd /sources
+rm -rf $NAME
+
+############### --- KBD --- ###############
+
+TARFILE=$(echo kbd*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+patch -Np1 -i ../kbd-2.7.1-backspace-1.patch
+sed -i '/RESIZECONS_PROGS=/s/yes/no/' configure
+sed -i 's/resizecons.8 //' docs/man/man8/Makefile.in
+
+./configure --prefix=/usr --disable-vlock
+
+make
+
+make check 2>&1 | tee /sources/logs/kbd-test.log
+
+make install
+cp -R -v docs/doc -T /usr/share/doc/kbd-2.7.1
+
+cd /sources
+rm -rf $NAME
+
+############### --- LIBPIPELINE --- ###############
+
+TARFILE=$(echo libpipeline*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr --disable-vlock
+
+make
+
+make check 2>&1 | tee /sources/logs/libpipeline-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- MAKE --- ###############
+
+TARFILE=$(echo make*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr
+
+make
+
+chown -R tester .
+su tester -c "PATH=$PATH make check" | tee /sources/logs/make-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- PATCH --- ###############
+
+TARFILE=$(echo patch*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr
+
+make
+
+make check 2>&1 | tee /sources/logs/patch-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- TAR --- ###############
+
+TARFILE=$(echo tar*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+FORCE_UNSAFE_CONFIGURE=1  \
+./configure --prefix=/usr
+
+make
+
+make check 2>&1 | tee /sources/logs/tar-test.log
+
+make install
+make -C doc install-html docdir=/usr/share/doc/tar-1.35
+
+cd /sources
+rm -rf $NAME
+
+############### --- TEXINFO --- ###############
+
+TARFILE=$(echo texinfo*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr
+
+make
+
+make check 2>&1 | tee /sources/logs/texinfo-test.log
+
+make install
+make TEXMF=/usr/share/texmf install-tex
+
+pushd /usr/share/info
+  rm -v dir
+  for f in *
+    do install-info $f dir 2>/dev/null
+  done
+popd
+
+cd /sources
+rm -rf $NAME
+
+############### --- VIM --- ###############
+
+TARFILE=$(echo vim*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+echo '#define SYS_VIMRC_FILE "/etc/vimrc"' >> src/feature.h
+
+./configure --prefix=/usr
+
+make
+chown -R tester .
+sed '/test_plugin_glvs/d' -i src/testdir/Make_all.mak
+su tester -c "TERM=xterm-256color LANG=en_US.UTF-8 make -j1 test" \
+   &> vim-test.log
+
+make install
+
+ln -sv vim /usr/bin/vi
+for L in  /usr/share/man/{,*/}man1/vim.1; do
+    ln -sv vim.1 $(dirname $L)/vi.1
+done
+ln -sv ../vim/vim91/doc /usr/share/doc/vim-9.1.1166
+
+cat > /etc/vimrc << "EOF"
+" Begin /etc/vimrc
+
+" Ensure defaults are set before customizing settings, not after
+source $VIMRUNTIME/defaults.vim
+let skip_defaults_vim=1
+
+set nocompatible
+set backspace=2
+set mouse=
+syntax on
+if (&term == "xterm") || (&term == "putty")
+  set background=dark
+endif
+
+" End /etc/vimrc
+EOF
+
+vim -c ':options'
+
+cd /sources
+rm -rf $NAME
+
+############### --- MARKUPSAFE --- ###############
+
+TARFILE=$(echo markupsafe*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+pip3 install --no-index --find-links dist Markupsafe
+
+cd /sources
+rm -rf $NAME
+
+############### --- JINJA --- ###############
+
+TARFILE=$(echo jinja*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+pip3 wheel -w dist --no-cache-dir --no-build-isolation --no-deps $PWD
+pip3 install --no-index --find-links dist Jinja2
+
+cd /sources
+rm -rf $NAME
+
+############### --- UDEV --- ###############
+
+TARFILE=$(echo systemd-257.3*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+sed -e 's/GROUP="render"/GROUP="video"/' \
+    -e 's/GROUP="sgx", //'               \
+    -i rules.d/50-udev-default.rules.in
+sed -i '/systemd-sysctl/s/^/#/' rules.d/99-systemd.rules.in
+
+mkdir -p build
+cd       build
+
+meson setup ..                  \
+      --prefix=/usr             \
+      --buildtype=release       \
+      -D mode=release           \
+      -D dev-kvm-mode=0660      \
+      -D link-udev-shared=false \
+      -D logind=false           \
+      -D vconsole=false
+
+export udev_helpers=$(grep "'name' :" ../src/udev/meson.build | \
+                      awk '{print $3}' | tr -d ",'" | grep -v 'udevadm')
+
+ninja udevadm systemd-hwdb                                           \
+      $(ninja -n | grep -Eo '(src/(lib)?udev|rules.d|hwdb.d)/[^ ]*') \
+      $(realpath libudev.so --relative-to .)                         \
+      $udev_helpers
+
+install -vm755 -d {/usr/lib,/etc}/udev/{hwdb.d,rules.d,network}
+install -vm755 -d /usr/{lib,share}/pkgconfig
+install -vm755 udevadm                             /usr/bin/
+install -vm755 systemd-hwdb                        /usr/bin/udev-hwdb
+ln      -svfn  ../bin/udevadm                      /usr/sbin/udevd
+cp      -av    libudev.so{,*[0-9]}                 /usr/lib/
+install -vm644 ../src/libudev/libudev.h            /usr/include/
+install -vm644 src/libudev/*.pc                    /usr/lib/pkgconfig/
+install -vm644 src/udev/*.pc                       /usr/share/pkgconfig/
+install -vm644 ../src/udev/udev.conf               /etc/udev/
+install -vm644 rules.d/* ../rules.d/README         /usr/lib/udev/rules.d/
+install -vm644 $(find ../rules.d/*.rules \
+                      -not -name '*power-switch*') /usr/lib/udev/rules.d/
+install -vm644 hwdb.d/*  ../hwdb.d/{*.hwdb,README} /usr/lib/udev/hwdb.d/
+install -vm755 $udev_helpers                       /usr/lib/udev
+install -vm644 ../network/99-default.link          /usr/lib/udev/network
+
+tar -xvf ../../udev-lfs-20230818.tar.xz
+make -f udev-lfs-20230818/Makefile.lfs install
+
+tar -xf ../../systemd-man-pages-257.3.tar.xz                            \
+    --no-same-owner --strip-components=1                              \
+    -C /usr/share/man --wildcards '*/udev*' '*/libudev*'              \
+                                  '*/systemd.link.5'                  \
+                                  '*/systemd-'{hwdb,udevd.service}.8
+
+sed 's|systemd/network|udev/network|'                                 \
+    /usr/share/man/man5/systemd.link.5                                \
+  > /usr/share/man/man5/udev.link.5
+
+sed 's/systemd\(\\\?-\)/udev\1/' /usr/share/man/man8/systemd-hwdb.8   \
+                               > /usr/share/man/man8/udev-hwdb.8
+
+sed 's|lib.*udevd|sbin/udevd|'                                        \
+    /usr/share/man/man8/systemd-udevd.service.8                       \
+  > /usr/share/man/man8/udevd.8
+
+rm /usr/share/man/man*/systemd*
+
+unset udev_helpers
+udev-hwdb update
+
+cd /sources
+rm -rf $NAME
+
+############### --- MAN-DB --- ###############
+
+TARFILE=$(echo man-db*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr                         \
+            --docdir=/usr/share/doc/man-db-2.13.0 \
+            --sysconfdir=/etc                     \
+            --disable-setuid                      \
+            --enable-cache-owner=bin              \
+            --with-browser=/usr/bin/lynx          \
+            --with-vgrind=/usr/bin/vgrind         \
+            --with-grap=/usr/bin/grap             \
+            --with-systemdtmpfilesdir=            \
+            --with-systemdsystemunitdir=
+
+make
+
+make check 2>&1 | tee /sources/logs/mandb-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- PROCPS-NG --- ###############
+
+TARFILE=$(echo procps-ng*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr                           \
+            --docdir=/usr/share/doc/procps-ng-4.0.5 \
+            --disable-static                        \
+            --disable-kill                          \
+            --enable-watch8bit
+
+make
+
+chown -R tester .
+su tester -c "PATH=$PATH make check" | tee /sources/logs/procpsng-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- UTIL-LINUX --- ###############
+
+TARFILE=$(echo util-linux*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --bindir=/usr/bin     \
+            --libdir=/usr/lib     \
+            --runstatedir=/run    \
+            --sbindir=/usr/sbin   \
+            --disable-chfn-chsh   \
+            --disable-login       \
+            --disable-nologin     \
+            --disable-su          \
+            --disable-setpriv     \
+            --disable-runuser     \
+            --disable-pylibmount  \
+            --disable-liblastlog2 \
+            --disable-static      \
+            --without-python      \
+            --without-systemd     \
+            --without-systemdsystemunitdir        \
+            ADJTIME_PATH=/var/lib/hwclock/adjtime \
+            --docdir=/usr/share/doc/util-linux-2.40.4
+
+make
+
+touch /etc/fstab
+chown -R tester .
+su tester -c "make -k check" | tee /sources/logs/utillinux-test.log
+
+make install
+
+cd /sources
+rm -rf $NAME
+
+############### --- E2FSPROGS --- ###############
+
+TARFILE=$(echo e2fsprogs*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+mkdir -v build
+cd       build
+
+../configure --prefix=/usr           \
+             --sysconfdir=/etc       \
+             --enable-elf-shlibs     \
+             --disable-libblkid      \
+             --disable-libuuid       \
+             --disable-uuidd         \
+             --disable-fsck
+
+make
+
+make check 2>&1 | tee /sources/logs/e2fsprogs-test.log
+
+make install
+
+rm -fv /usr/lib/{libcom_err,libe2p,libext2fs,libss}.a
+gunzip -v /usr/share/info/libext2fs.info.gz
+install-info --dir-file=/usr/share/info/dir /usr/share/info/libext2fs.info
+makeinfo -o      doc/com_err.info ../lib/et/com_err.texinfo
+install -v -m644 doc/com_err.info /usr/share/info
+install-info --dir-file=/usr/share/info/dir /usr/share/info/com_err.info
+
+sed 's/metadata_csum_seed,//' -i /etc/mke2fs.conf
+
+cd /sources
+rm -rf $NAME
+
+############### --- SYSKLOGD --- ###############
+
+TARFILE=$(echo sysklogd*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+./configure --prefix=/usr      \
+            --sysconfdir=/etc  \
+            --runstatedir=/run \
+            --without-logger   \
+            --disable-static   \
+            --docdir=/usr/share/doc/sysklogd-2.7.0
+
+make
+
+make install
+
+cat > /etc/syslog.conf << "EOF"
+# Begin /etc/syslog.conf
+
+auth,authpriv.* -/var/log/auth.log
+*.*;auth,authpriv.none -/var/log/sys.log
+daemon.* -/var/log/daemon.log
+kern.* -/var/log/kern.log
+mail.* -/var/log/mail.log
+user.* -/var/log/user.log
+*.emerg *
+
+# Do not open any internet ports.
+secure_mode 2
+
+# End /etc/syslog.conf
+EOF
+
+cd /sources
+rm -rf $NAME
+
+############### --- SYSVINIT --- ###############
+
+TARFILE=$(echo sysvinit*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd $NAME
+
+patch -Np1 -i ../sysvinit-3.14-consolidated-1.patch
+
+make
+
+make install
+
+cd /sources
+rm -rf $NAME
