@@ -297,3 +297,54 @@ This script is to install all the basic tools that our LFS system will have. It'
 [Link to the script of the basic system software step](./basic-system-software.sh)
 
 ---
+
+## Creating Configuration Files
+
+### /etc/sysconfig/ifconfig.<NAME>
+```
+bash /usr/lib/udev/init-net-rules.sh
+cat /etc/udev/rules.d/70-persistent-net.rules #Check the value of "NAME"
+ip route show #To obtain the GATEWAY value --> default via <GATEWAY>
+ip address show enp0s3 #To obtain the IP, PREFIX and BROADCAST --> inet <IP>/<PREFIX> metric 100 brd <BROADCAST>
+#I'll use as name enp0s3
+cd /etc/sysconfig/
+cat > ifconfig.enp0s3 << EOF
+ONBOOT=yes
+IFACE=<NAME>
+SERVICE=ipv4-static
+IP=192.168.1.<VM_ip>
+GATEWAY=<GATEWAY>
+PREFIX=<PREFIX>
+BROADCAST=<BROADCAST>
+EOF
+```
+
+### /etc/resolv.conf
+```
+cat > /etc/resolv.conf << "EOF"
+# Begin /etc/resolv.conf
+
+domain ft_linux
+nameserver <GATEWAY> #Replace it with the GATEWAY obtained for the ifconfig.<NAME> file
+nameserver 8.8.8.8 #Google Public IPv4 DNS address
+nameserver 8.8.4.4 #Google Public IPv4 DNS address
+
+# End /etc/resolv.conf
+EOF
+```
+
+### /etc/hosts
+```
+cat > /etc/hosts << "EOF"
+# Begin /etc/hosts
+
+127.0.0.1 localhost.localdomain localhost
+127.0.1.1 <42_login> <42_login>
+<VM_IP> <42_login>
+::1       localhost ip6-localhost ip6-loopback
+ff02::1   ip6-allnodes
+ff02::2   ip6-allrouters
+
+# End /etc/hosts
+EOF
+```
