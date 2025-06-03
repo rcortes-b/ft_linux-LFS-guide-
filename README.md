@@ -482,3 +482,27 @@ cat > /etc/shells << "EOF"
 # End /etc/shells
 EOF
 ```
+
+### /etc/fstab
+The /etc/fstab file is used to determine where file systems are to be mounted by default.
+```
+cat > /etc/fstab << "EOF"
+# Begin /etc/fstab
+
+# file system  mount-point    type     options             dump  fsck
+#                                                                order
+
+/dev/sdb1     /              ext4     defaults            1     1
+/dev/sdb2     /boot			 ext4     defaults			  1	    2
+/dev/sdb3     swap           swap     pri=1               0     0
+proc          /proc          proc     nosuid,noexec,nodev 0     0
+sysfs         /sys           sysfs    nosuid,noexec,nodev 0     0
+devpts        /dev/pts       devpts   gid=5,mode=620      0     0
+tmpfs         /run           tmpfs    defaults            0     0
+devtmpfs      /dev           devtmpfs mode=0755,nosuid    0     0
+tmpfs         /dev/shm       tmpfs    nosuid,nodev        0     0
+cgroup2       /sys/fs/cgroup cgroup2  nosuid,noexec,nodev 0     0
+
+# End /etc/fstab
+EOF
+```
