@@ -506,3 +506,79 @@ cgroup2       /sys/fs/cgroup cgroup2  nosuid,noexec,nodev 0     0
 # End /etc/fstab
 EOF
 ```
+
+---
+
+## Making the LFS System Bootable 📁
+
+```
+set -e
+
+############### --- Making the LFS System Bootable --- ###############
+
+TARFILE=$(echo linux*.tar.*)
+NAME=$(echo ${TARFILE%.tar.*})
+
+tar -xf $TARFILE
+
+cd /usr/src/. && mv /sources/$NAME .
+mv -v $NAME kernel-6.13.4_rcortes-
+NAME= "kernel-6.13.4_rcortes-"
+
+cd $NAME
+
+make mrproper
+
+### In this step (menuconfig) you have to do some manual steps
+make menuconfig
+
+make
+make modules_install
+
+mount /boot
+
+cp -iv arch/x86/boot/bzImage /boot/vmlinuz-6.13.4-rcortes-
+cp -iv System.map /boot/System.map-6.13.4
+cp -iv .config /boot/config-6.13.4
+cp -r Documentation -T /usr/share/doc/linux-6.13.4
+
+install -v -m755 -d /etc/modprobe.d
+cat > /etc/modprobe.d/usb.conf << "EOF"
+# Begin /etc/modprobe.d/usb.conf
+
+install ohci_hcd /sbin/modprobe ehci_hcd ; /sbin/modprobe -i ohci_hcd ; true
+install uhci_hcd /sbin/modprobe ehci_hcd ; /sbin/modprobe -i uhci_hcd ; true
+
+# End /etc/modprobe.d/usb.conf
+EOF
+
+grub-install /dev/sdb
+
+cat > /boot/grub/grub.cfg << "EOF"
+# Begin /boot/grub/grub.cfg
+
+set default=0
+set timeout=5
+
+insmod part_gpt
+insmod ext2
+set root=(hd1,2)
+set gfxpayload=1024x768x32
+
+menuentry "GNU/Linux, Linux 6.13.4-rcortes-" {
+        linux   /vmlinuz-6.13.4-rcortes- root=/dev/sdb1 ro
+}
+
+# End /boot/grub/grub.cfg
+EOF
+
+## This is the end of LFS. Now we have to detach the host system in the VM and set the LFS disk to Port 0 in Controller: SATA
+	## Now our /dev/sdb is /dev/sda so we have to do some changes
+## Modify the /boot/grub/grub.cfg:
+	## set root=(hd0,2)
+	## root=/dev/sda1
+##Modify the /etc/fstab
+	## /root: /dev/sdb1 --> /dev/sda1
+	## /boot: /dev/sdb2 --> /dev/sda2
+	## swap: /dev/sdb3 --> /dev/sda3
+```
